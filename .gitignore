@@ -1,0 +1,4 @@
+# Built by scripts/refresh-nfl.mjs (locally and in GitHub Actions); never committed.
+public/data/*/*.json
+node_modules/
+.DS_Store

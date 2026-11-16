@@ -1,0 +1,11 @@
+{
+  "name": "stat-analysis",
+  "private": true,
+  "description": "Real-time sports stat model builder (NFL first). Static site + weekly data refresh.",
+  "type": "module",
+  "scripts": {
+    "data": "node scripts/refresh-nfl.mjs",
+    "data:all": "node scripts/refresh-nfl.mjs --all",
+    "serve": "npx --yes http-server public -p 8765 -c-1"
+  }
+}
