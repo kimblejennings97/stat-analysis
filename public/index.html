@@ -20,7 +20,8 @@
     </div>
     <nav class="sports" aria-label="Sport">
       <button class="sport on" data-sport="nfl" aria-pressed="true">NFL</button>
-      <button class="sport" disabled title="Coming later">More soon</button>
+      <button class="sport" data-sport="nba" aria-pressed="false">NBA</button>
+      <button class="sport" data-sport="mlb" aria-pressed="false">MLB</button>
     </nav>
     <div class="updated" id="updated"></div>
     <button class="icon-btn" id="themeBtn" title="Toggle light/dark" aria-label="Toggle light or dark theme">
@@ -64,7 +65,11 @@
           <span class="field-label">Seasons</span>
           <div class="chips" id="seasons"></div>
         </div>
-        <div class="row2">
+        <div class="field date-only">
+          <span class="field-label">Months <span class="hint-inline">(none picked = all)</span></span>
+          <div class="chips" id="months"></div>
+        </div>
+        <div class="row2 week-only">
           <label class="field">From week <select id="weekFrom"></select></label>
           <label class="field">To week <select id="weekTo"></select></label>
         </div>
@@ -75,7 +80,7 @@
         </div>
         <div class="row2 trend-only">
           <label class="field">X axis
-            <select id="bucket"><option value="week">By game (week)</option><option value="season">By season</option></select>
+            <select id="bucket"></select>
           </label>
           <label class="field">Rolling avg
             <select id="rolling"><option value="0">Off</option><option value="3">3 games</option><option value="4">4 games</option><option value="5">5 games</option><option value="8">8 games</option></select>
@@ -121,6 +126,10 @@
           <label class="field">Qualify on <select id="qualStat"></select></label>
           <label class="field">Min total <input id="qualMin" type="number" min="0" step="1" placeholder="auto"></label>
         </div>
+        <div class="seg small not-scatter" id="orderSeg" role="group" aria-label="Sort order">
+          <button data-v="desc">Highest first</button>
+          <button data-v="asc">Lowest first</button>
+        </div>
         <label class="check scatter-only"><input type="checkbox" id="fit"> Linear fit (R²)</label>
         <label class="check scatter-only"><input type="checkbox" id="labels"> Name labels</label>
         <label class="check trend-only team-only"><input type="checkbox" id="avg"> League average line</label>
@@ -159,8 +168,8 @@
         <div class="table-scroll"><table id="table"></table></div>
       </details>
       <footer class="foot">
-        Data: <a href="https://github.com/nflverse" target="_blank" rel="noopener">nflverse</a> (play-by-play derived stats) and Pro Football Reference via nflverse (pressures, blitzes, snaps). Logos: ESPN.
-        Refreshed weekly. Rates are pooled: sum of the stat ÷ sum of the divisor over the window.
+        <span id="credit"></span>
+        Rates are pooled: sum of the stat ÷ sum of the divisor over the window.
       </footer>
     </main>
   </div>

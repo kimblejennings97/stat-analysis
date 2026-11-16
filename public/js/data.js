@@ -79,7 +79,9 @@ export function metricValue(m, num, den) {
 
 // Filter rows from the loaded tables according to state.
 // Returns an array of { season, row, table } for the selected entity kind.
-export function filterRows(tables, state) {
+export function filterRows(tables, state, sport) {
+  const byWeek = sport.time === "week";
+  const monthSet = new Set(state.months || []);
   const out = [];
   const teamSet = new Set(state.teams);
   const oppSet = new Set(state.opps);
@@ -87,12 +89,14 @@ export function filterRows(tables, state) {
   const posSet = new Set(state.positions);
   for (const t of tables) {
     const I = t.idx;
-    const pidI = I.pid, teamI = I.team, oppI = I.opp, weekI = I.week, stI = I.stype;
+    const pidI = I.pid, teamI = I.team, oppI = I.opp, weekI = I.week, dateI = I.date, stI = I.stype;
     for (const row of t.rows) {
       const st = row[stI];
       if (state.stype !== "RP" && st !== state.stype) continue;
-      const w = row[weekI];
-      if (st === "R" && (w < state.weekFrom || w > state.weekTo)) continue;
+      if (byWeek) {
+        const w = row[weekI];
+        if (st === "R" && (w < state.weekFrom || w > state.weekTo)) continue;
+      } else if (monthSet.size && !monthSet.has(Math.floor(row[dateI] / 100) % 100)) continue;
       if (teamSet.size && !teamSet.has(row[teamI])) continue;
       if (oppSet.size && !oppSet.has(row[oppI])) continue;
       if (t.kind === "player") {
@@ -109,7 +113,7 @@ const entityKey = (r) => (r.t.kind === "team" ? r.row[r.t.idx.team] : r.row[r.t.
 
 // Aggregate filtered rows per entity over the whole window.
 // Returns [{ id, team, name, pos, games, vals: [{num, den, value}] per metric, qual }]
-export function aggregate(rows, metrics, qualStat) {
+export function aggregate(rows, metrics, qualStat, sport) {
   const by = new Map();
   for (const r of rows) {
     const id = entityKey(r);
@@ -119,7 +123,7 @@ export function aggregate(rows, metrics, qualStat) {
       by.set(id, e);
     }
     const I = r.t.idx;
-    const k = r.season * 100 + r.row[I.week];
+    const k = r.season * 1e8 + sport.tval(r.row, I);
     if (k > e.lastKey) { e.lastKey = k; e.team = r.row[I.team]; }
     e.games += 1;
     metrics.forEach((m, i) => {
@@ -138,21 +142,30 @@ export function aggregate(rows, metrics, qualStat) {
   }));
 }
 
-// Time series per entity. bucket = "week" (each game) or "season".
+// Time bucket for a row. bucket = "game" (each game / week), "month" (date sports) or "season".
+export function bucketOf(r, opts, sport) {
+  const I = r.t.idx;
+  const yy = "'" + String(r.season).slice(2);
+  const slabel = opts.seasonLabel ? opts.seasonLabel(r.season) : String(r.season);
+  if (opts.bucket === "season") return { key: String(r.season), season: r.season, label: opts.seasonLabel ? opts.seasonLabel(r.season) : String(r.season) };
+  const t = sport.tval(r.row, I);
+  if (opts.bucket === "month" && sport.time === "date") {
+    const ym = Math.floor(t / 100);
+    return { key: `${r.season}-${ym}`, season: r.season, slabel, month: ym % 100, label: `${sport.monthName(ym % 100)} ${"'" + String(Math.floor(ym / 100)).slice(2)}` };
+  }
+  const st = r.row[I.stype];
+  return { key: `${r.season}-${String(t).padStart(8, "0")}`, season: r.season, slabel, week: t, stype: st,
+    label: sport.time === "week" ? `${yy} ${sport.gameLabel(t, st, r.season)}` : `${sport.dateLabel(t)} ${"'" + String(Math.floor(t / 10000)).slice(2)}` };
+}
+
+// Time series per entity. bucket = "game", "month" or "season".
 // rolling (weeks only): value over the entity's last N games.
 // Returns { buckets: [{key, season, week, stype, label}], series: Map(id -> {team, name, points: Map(bucketKey -> value)}) }
 export function timeSeries(rows, metric, opts, sport) {
-  const bucketOf = (r) => {
-    const I = r.t.idx;
-    if (opts.bucket === "season") return { key: String(r.season), season: r.season, label: String(r.season) };
-    const w = r.row[I.week], st = r.row[I.stype];
-    return { key: `${r.season}-${String(w).padStart(2, "0")}`, season: r.season, week: w, stype: st,
-      label: `${String(r.season).slice(2)} ${sport.weekLabel(w, st, r.season)}` };
-  };
   const buckets = new Map();
   const ents = new Map();
   for (const r of rows) {
-    const b = bucketOf(r);
+    const b = bucketOf(r, opts, sport);
     buckets.set(b.key, b);
     const id = entityKey(r);
     let e = ents.get(id);
@@ -175,7 +188,7 @@ export function timeSeries(rows, metric, opts, sport) {
     const keys = ordered.map((b) => b.key).filter((k) => e.per.has(k));
     keys.forEach((k, i) => {
       let num = 0, den = 0;
-      const n = opts.bucket === "week" && opts.rolling > 1 ? opts.rolling : 1;
+      const n = opts.bucket === "game" && opts.rolling > 1 ? opts.rolling : 1;
       for (let j = Math.max(0, i - n + 1); j <= i; j++) {
         const a = e.per.get(keys[j]);
         num += a[0]; den += a[1];
@@ -189,11 +202,11 @@ export function timeSeries(rows, metric, opts, sport) {
 
 // League average per bucket: ratios -> pooled sum(num)/sum(den);
 // totals -> mean per entity-game (weeks) or mean per entity (seasons).
-export function leagueAverage(rows, metric, opts) {
+export function leagueAverage(rows, metric, opts, sport) {
   const sums = new Map();
   for (const r of rows) {
     const I = r.t.idx;
-    const key = opts.bucket === "season" ? String(r.season) : `${r.season}-${String(r.row[I.week]).padStart(2, "0")}`;
+    const key = bucketOf(r, opts, sport).key;
     let a = sums.get(key);
     if (!a) sums.set(key, (a = { num: 0, den: 0, n: 0, ents: new Set() }));
     a.num += r.row[I[metric.stat]] ?? 0;
@@ -203,7 +216,7 @@ export function leagueAverage(rows, metric, opts) {
   }
   const pts = new Map();
   for (const [k, a] of sums) {
-    const v = metric.per ? metricValue(metric, a.num, a.den) : a.num / (opts.bucket === "season" ? a.ents.size : a.n);
+    const v = metric.per ? metricValue(metric, a.num, a.den) : a.num / (opts.bucket === "game" ? a.n : a.ents.size);
     if (v != null) pts.set(k, v);
   }
   return pts;

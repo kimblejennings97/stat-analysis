@@ -130,12 +130,12 @@ export function renderTrend(el, spec) {
     axes(svg, x, y, width, height, m, { xTicks, xTickFormat: (k) => byKey.get(k)?.label ?? k, yFmt: fmt });
 
     // season boundaries
-    if (spec.buckets.some((b) => b.week != null)) {
+    if (spec.buckets.some((b) => b.week != null || b.month != null)) {
       spec.buckets.forEach((b, i) => {
         if (i === 0 || spec.buckets[i - 1].season === b.season) return;
         const xx = (x(b.key) + x(spec.buckets[i - 1].key)) / 2;
         svg.append("line").attr("class", "season-rule").attr("x1", xx).attr("x2", xx).attr("y1", m.t).attr("y2", height - m.b);
-        svg.append("text").attr("class", "season-tag").attr("x", xx + 4).attr("y", m.t + 10).text(b.season);
+        svg.append("text").attr("class", "season-tag").attr("x", xx + 4).attr("y", m.t + 10).text(b.slabel || b.season);
       });
     }
 
@@ -197,7 +197,7 @@ export function renderTrend(el, spec) {
           .sort((a, b) => b.v - a.v);
         if (panel.avg?.has(best)) rows.push({ value: fmt(panel.avg.get(best)), label: "League avg", color: css("--text-muted") });
         const b = byKey.get(best);
-        showTip(evt, `${b.season}${b.week != null ? " · " + b.label.split(" ").slice(1).join(" ") : ""}${spec.panels.length > 1 ? " — " + panel.title : ""}`, rows);
+        showTip(evt, `${b.label}${spec.panels.length > 1 ? " — " + panel.title : ""}`, rows);
       })
       .on("pointerleave", () => { cross.style("display", "none"); hideTip(); });
   }

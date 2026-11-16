@@ -1,0 +1,46 @@
+name: Data · NBA
+
+# Rebuilds NBA stats from sportsdataverse (ESPN box scores) and publishes them to the `data` branch.
+# Does NOT redeploy the site (the site reads the data branch directly).
+
+on:
+  schedule:
+    - cron: "0 10 * 1-6,10-12 *"   # daily 10:00 UTC, October–June
+    - cron: "0 10 * 7-9 2"         # Tuesdays, July–September
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Rebuild every season (not just the current one)"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ["scripts/refresh-nba.mjs", "scripts/lib.mjs", "scripts/publish-data.sh", ".github/workflows/data-nba.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-branch   # shared by every sport's workflow so pushes to `data` never race
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore already-published seasons
+        run: |
+          git fetch --depth=1 origin data || exit 0
+          mkdir -p public/data
+          git --work-tree=public/data checkout origin/data -- nba 2>/dev/null || true
+          git reset -q
+      - name: Build NBA data
+        run: node scripts/refresh-nba.mjs ${{ inputs.full && '--all' || '' }}
+      - name: Publish to the data branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/publish-data.sh nba

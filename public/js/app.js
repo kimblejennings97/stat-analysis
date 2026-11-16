@@ -1,8 +1,10 @@
 import nfl from "./sports/nfl.js";
+import nba from "./sports/nba.js";
+import mlb from "./sports/mlb.js";
 import { loadMeta, loadTable, statList, metricLabel, filterRows, aggregate, timeSeries, leagueAverage, linearFit } from "./data.js";
 import { renderTrend, renderScatter, renderBar, seriesColor, formatter, hideTip } from "./charts.js";
 
-const SPORTS = { nfl };
+const SPORTS = { nfl, nba, mlb };
 const $ = (id) => document.getElementById(id);
 const MAX_SERIES = 8;
 const MAX_METRICS = 4;
@@ -11,6 +13,7 @@ let sport = nfl;
 let meta = null;
 let state = null;
 let statOptions = { team: [], player: [] };
+let activeTeams = [];
 let current = { tables: [], tableRows: [], csv: null };
 let renderToken = 0;
 
@@ -22,18 +25,15 @@ function defaultState() {
     entity: sport.defaults.entity,
     metrics: structuredClone(sport.defaults.metrics),
     seasons: [meta.latestSeason],
-    weekFrom: 1, weekTo: 18, stype: "R",
-    bucket: "week", rolling: 0,
+    weekFrom: 1, weekTo: sport.regWeeks || 18, months: [], stype: "R",
+    bucket: "game", rolling: 0,
     teams: [], opps: [], players: [], positions: [],
     selMode: "filter",
     topN: "auto", minGames: 0, qualStat: "auto", qualMin: "",
-    fit: true, labels: true, avg: true,
+    fit: true, labels: true, avg: true, order: "desc",
   };
 }
-const playerDefaults = () => [
-  { stat: "targets", per: "tm_targets", pct: true },
-  { stat: "receiving_yards", per: "games" },
-];
+const playerDefaults = () => structuredClone(sport.defaults.player);
 
 function readHash() {
   try {
@@ -47,28 +47,65 @@ function writeHash() {
 }
 function sanitize(s) {
   const d = defaultState();
-  const out = { ...d, ...(s || {}) };
+  const out = { ...d, ...(s || {}), sport: sport.id };
   const avail = new Set(meta.seasons.map((x) => x.season));
   out.seasons = (out.seasons || []).filter((x) => avail.has(x));
   if (!out.seasons.length) out.seasons = [meta.latestSeason];
-  if (!Array.isArray(out.metrics) || !out.metrics.length) out.metrics = d.metrics;
-  for (const k of ["teams", "opps", "players", "positions"]) if (!Array.isArray(out[k])) out[k] = [];
+  // keep only metrics that exist for this sport + entity; otherwise use that entity's defaults
+  const opts = new Set(statOptions[out.entity] || []);
+  const given = Array.isArray(s?.metrics) ? s.metrics : out.entity === "player" ? playerDefaults() : d.metrics;
+  out.metrics = given.filter((m) => m && opts.has(m.stat) && (!m.per || opts.has(m.per)));
+  if (!out.metrics.length) out.metrics = out.entity === "player" ? playerDefaults() : d.metrics;
+  if (out.chart === "scatter" && out.metrics.length < 2) {
+    const fb = out.entity === "player" ? playerDefaults() : d.metrics;
+    out.metrics.push(fb.find((m) => m.stat !== out.metrics[0].stat || m.per !== out.metrics[0].per) || fb[0]);
+  }
+  for (const k of ["teams", "opps", "players", "positions", "months"]) if (!Array.isArray(out[k])) out[k] = [];
+  if (out.bucket === "week") out.bucket = "game"; // links made before months existed
+  if (out.bucket === "month" && sport.time !== "date") out.bucket = "game";
   return out;
 }
 
-// ------------------------------------------------------------------ boot
+// ------------------------------------------------------------------ boot / sport switching
 async function boot() {
+  buildStaticControls();
+  const h = readHash();
+  await loadSport(SPORTS[h?.sport] ? h.sport : "nfl", h);
+}
+
+async function loadSport(id, initial) {
+  hideTip();
+  sport = SPORTS[id];
+  for (const b of document.querySelectorAll(".sport[data-sport]")) {
+    const on = b.dataset.sport === id;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on);
+  }
+  $("title").textContent = "Loading…";
+  $("chart").classList.add("loading");
   meta = await loadMeta(sport);
   const latest = meta.seasons.find((s) => s.season === meta.latestSeason);
-  const upd = new Date(meta.updated);
-  $("updated").textContent = `Data through ${meta.latestSeason} ${sport.weekLabel(latest.maxWeek, latest.maxWeek > 18 ? "P" : "R", meta.latestSeason)} · refreshed ${upd.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
-  state = sanitize(readHash());
-  // Stat lists come from the latest season's columns.
+  const upd = new Date(meta.updated).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const through = sport.time === "week"
+    ? `${meta.latestSeason} ${sport.gameLabel(latest.maxWeek, latest.maxWeek > (sport.regWeeks || 18) ? "P" : "R", meta.latestSeason)}`
+    : `${sport.dateLabel(latest.maxDate)}, ${Math.floor(latest.maxDate / 10000)}`;
+  $("updated").textContent = `${sport.name} data through ${through} · refreshed ${upd}`;
+  // Stat lists and the team grid come from the latest season.
   const [tt, pt] = await Promise.all([loadTable(sport, meta, "team", meta.latestSeason), loadTable(sport, meta, "player", meta.latestSeason)]);
   statOptions.team = statList(sport, tt, "team");
   statOptions.player = statList(sport, pt, "player");
-  buildStaticControls();
+  activeTeams = [...new Set(tt.rows.map((r) => r[tt.idx.team]))];
+  ui.slot = 0; ui.divOpen = -1; ui.query = ""; ui.side = "all";
+  $("statSearch").value = "";
+  state = sanitize(initial && initial.sport === id ? initial : null);
+  buildSportControls();
+  $("credit").replaceChildren();
+  for (const part of sport.credit) {
+    if (typeof part === "string") $("credit").appendChild(document.createTextNode(part));
+    else { const a = document.createElement("a"); a.href = part.href; a.target = "_blank"; a.rel = "noopener"; a.textContent = part.text; $("credit").appendChild(a); }
+  }
   syncControls();
+  writeHash();
   render();
 }
 
@@ -86,33 +123,39 @@ function seg(id, key, after) {
   });
 }
 
-function buildStaticControls() {
-  seg("chartSeg", "chart", (v) => {
-    if (v === "scatter" && state.metrics.length < 2) state.metrics.push(defaultSecond());
-  });
-  seg("entitySeg", "entity", () => {
-    // Keep metrics that exist for the new entity; otherwise switch to its defaults.
-    const ok = state.metrics.filter((m) => valid(m));
-    state.metrics = ok.length ? ok : state.entity === "player" ? playerDefaults() : structuredClone(sport.defaults.metrics);
-    if (state.chart === "scatter" && state.metrics.length < 2) state.metrics.push(defaultSecond());
-    state.qualStat = "auto"; state.qualMin = "";
-  });
-  seg("stypeSeg", "stype");
-  seg("selModeSeg", "selMode");
+function chipToggle(container, values, key, labelOf = (v) => v, cast = (v) => v) {
+  container.replaceChildren();
+  for (const v of values) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip"; b.dataset.v = v; b.textContent = labelOf(v);
+    b.onclick = () => {
+      const set = new Set(state[key]);
+      set.has(cast(v)) ? set.delete(cast(v)) : set.add(cast(v));
+      state[key] = [...set];
+      update();
+    };
+    container.appendChild(b);
+  }
+}
 
+// Controls whose contents depend on the sport (rebuilt on every sport switch).
+function buildSportControls() {
   const sideSeg = $("sideSeg");
+  sideSeg.replaceChildren();
   for (const [v, txt] of sport.sides) {
     const b = document.createElement("button");
     b.type = "button"; b.dataset.v = v; b.textContent = txt;
     sideSeg.appendChild(b);
   }
-  setupPicker();
 
-  // seasons
+  // seasons (at least one stays selected)
   const sEl = $("seasons");
+  sEl.replaceChildren();
   for (const s of meta.seasons) {
     const b = document.createElement("button");
-    b.className = "chip"; b.dataset.v = s.season; b.textContent = s.season;
+    b.type = "button";
+    b.className = "chip"; b.dataset.v = s.season; b.textContent = s.label || s.season;
     b.onclick = () => {
       const set = new Set(state.seasons);
       if (set.has(s.season)) { if (set.size > 1) set.delete(s.season); } else set.add(s.season);
@@ -121,27 +164,32 @@ function buildStaticControls() {
     };
     sEl.appendChild(b);
   }
+
+  // weeks (NFL) or months (date sports)
+  const weeks = sport.regWeeks || 18;
   for (const id of ["weekFrom", "weekTo"]) {
     const sel = $(id);
-    for (let w = 1; w <= 18; w++) sel.add(new Option(`Week ${w}`, w));
-    sel.onchange = () => {
-      state[id] = Number(sel.value);
-      if (state.weekFrom > state.weekTo) { if (id === "weekFrom") state.weekTo = state.weekFrom; else state.weekFrom = state.weekTo; }
-      update();
-    };
+    sel.replaceChildren();
+    for (let w = 1; w <= weeks; w++) sel.add(new Option(`Week ${w}`, w));
   }
-  $("bucket").onchange = (e) => { state.bucket = e.target.value; update(); };
-  $("rolling").onchange = (e) => { state.rolling = Number(e.target.value); update(); };
+  chipToggle($("months"), sport.seasonMonths || [], "months", (m) => sport.monthName(m), Number);
 
-  // team + opponent logo grids, ordered by conference/division
-  const teams = Object.entries(meta.teams)
+  // bucket options
+  const bucket = $("bucket");
+  bucket.replaceChildren();
+  bucket.add(new Option(sport.time === "week" ? "By game (week)" : "By game (date)", "game"));
+  if (sport.time === "date") bucket.add(new Option("By month", "month"));
+  bucket.add(new Option("By season", "season"));
+
+  // team + opponent logo grids, ordered by division then abbreviation
+  const teams = activeTeams.map((abbr) => [abbr, meta.teams[abbr] || { name: abbr }])
     .sort((a, b) => (a[1].div || "").localeCompare(b[1].div || "") || a[0].localeCompare(b[0]));
-  const activeTeams = new Set(teamsInData());
   for (const [gridId, key] of [["teams", "teams"], ["opps", "opps"]]) {
     const g = $(gridId);
+    g.replaceChildren();
     for (const [abbr, t] of teams) {
-      if (!activeTeams.has(abbr)) continue;
       const b = document.createElement("button");
+      b.type = "button";
       b.className = "logo-btn"; b.dataset.v = abbr; b.title = t.name;
       b.setAttribute("aria-label", t.name);
       const img = document.createElement("img");
@@ -157,19 +205,40 @@ function buildStaticControls() {
     }
   }
 
-  // positions
-  const pEl = $("positions");
-  for (const p of sport.positions) {
-    const b = document.createElement("button");
-    b.className = "chip"; b.dataset.v = p; b.textContent = p;
-    b.onclick = () => {
-      const set = new Set(state.positions);
-      set.has(p) ? set.delete(p) : set.add(p);
-      state.positions = [...set];
+  chipToggle($("positions"), sport.positions, "positions");
+  peopleIndex = [];
+}
+
+// One-time wiring for controls that don't depend on the sport.
+function buildStaticControls() {
+  for (const b of document.querySelectorAll(".sport[data-sport]")) {
+    b.onclick = () => { if (b.dataset.sport !== sport.id || !meta) loadSport(b.dataset.sport, null).catch(showError); };
+  }
+  seg("chartSeg", "chart", (v) => {
+    if (v === "scatter" && state.metrics.length < 2) state.metrics.push(defaultSecond());
+  });
+  seg("entitySeg", "entity", () => {
+    // Keep metrics that exist for the new entity; otherwise switch to its defaults.
+    const ok = state.metrics.filter((m) => valid(m));
+    state.metrics = ok.length ? ok : state.entity === "player" ? playerDefaults() : structuredClone(sport.defaults.metrics);
+    if (state.chart === "scatter" && state.metrics.length < 2) state.metrics.push(defaultSecond());
+    state.qualStat = "auto"; state.qualMin = "";
+  });
+  seg("stypeSeg", "stype");
+  seg("selModeSeg", "selMode");
+  seg("orderSeg", "order");
+  setupPicker();
+
+  for (const id of ["weekFrom", "weekTo"]) {
+    const sel = $(id);
+    sel.onchange = () => {
+      state[id] = Number(sel.value);
+      if (state.weekFrom > state.weekTo) { if (id === "weekFrom") state.weekTo = state.weekFrom; else state.weekFrom = state.weekTo; }
       update();
     };
-    pEl.appendChild(b);
   }
+  $("bucket").onchange = (e) => { state.bucket = e.target.value; update(); };
+  $("rolling").onchange = (e) => { state.rolling = Number(e.target.value); update(); };
 
   setupPlayerSearch();
 
@@ -184,7 +253,7 @@ function buildStaticControls() {
     try { await navigator.clipboard.writeText(location.href); toast("Link copied"); } catch { toast("Copy the address bar to share"); }
   };
   $("saveModel").onclick = () => {
-    const name = prompt("Name this model", $("title").textContent.slice(0, 60));
+    const name = prompt("Name this model", `${sport.name}: ${$("title").textContent}`.slice(0, 70));
     if (!name) return;
     const list = savedModels();
     list.unshift({ name, state: structuredClone(state), at: Date.now() });
@@ -200,21 +269,29 @@ function buildStaticControls() {
     const dark = getComputedStyle(document.documentElement).colorScheme === "dark";
     document.documentElement.dataset.theme = dark ? "light" : "dark";
     try { localStorage.setItem("sa.theme", document.documentElement.dataset.theme); } catch {}
-    render();
+    current.draw?.();
   };
   renderSaved();
 
   let rt;
   new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => current.draw?.(), 120); }).observe($("chart"));
-  window.addEventListener("hashchange", () => { const s = readHash(); if (s) { state = sanitize(s); syncControls(); render(); } });
+  window.addEventListener("hashchange", () => openState(readHash()));
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => current.draw?.());
 }
 
-function teamsInData() {
-  return [...new Set(Object.keys(meta.teams))].filter((abbr) => {
-    // Only teams that exist in the loaded seasons (drops OAK/SD/STL duplicates where relocated).
-    return !["OAK", "SD", "STL", "LAR"].includes(abbr);
-  });
+// Apply a full state (from a link or a saved model), switching sport if needed.
+function openState(s) {
+  if (!s) return;
+  if (s.sport && s.sport !== sport.id && SPORTS[s.sport]) { loadSport(s.sport, s).catch(showError); return; }
+  state = sanitize(s);
+  syncControls();
+  render();
+}
+function showError(e) {
+  $("title").textContent = "Could not load data";
+  $("subtitle").textContent = e.message;
+  $("chart").classList.remove("loading");
+  console.error(e);
 }
 
 const valid = (m) => {
@@ -317,6 +394,7 @@ function choosePreset(p) {
     else if (state.metrics.length < MAX_METRICS) state.metrics.push(m);
     else state.metrics[ui.slot] = m;
   } else state.metrics[ui.slot] = m;
+  if (state.chart !== "scatter" && (state.chart === "bar" || state.metrics.length === 1)) state.order = p.low ? "asc" : "desc";
   update();
 }
 
@@ -502,8 +580,9 @@ function setupPicker() {
 }
 
 function syncControls() {
-  document.body.className = `c-${state.chart} e-${state.entity}`;
-  for (const [id, key] of [["chartSeg", "chart"], ["entitySeg", "entity"], ["stypeSeg", "stype"], ["selModeSeg", "selMode"]]) {
+  document.body.className = `c-${state.chart} e-${state.entity} t-${sport.time}`;
+  for (const b of $("months").children) b.classList.toggle("on", state.months.includes(Number(b.dataset.v)));
+  for (const [id, key] of [["chartSeg", "chart"], ["entitySeg", "entity"], ["stypeSeg", "stype"], ["selModeSeg", "selMode"], ["orderSeg", "order"]]) {
     for (const b of $(id).querySelectorAll("button")) {
       const on = b.dataset.v === state[key];
       b.classList.toggle("on", on);
@@ -517,7 +596,7 @@ function syncControls() {
   $("weekTo").value = state.weekTo;
   $("bucket").value = state.bucket;
   $("rolling").value = state.rolling;
-  $("rolling").disabled = state.bucket !== "week";
+  $("rolling").disabled = state.bucket !== "game";
   for (const [gridId, key] of [["teams", "teams"], ["opps", "opps"]]) {
     const set = new Set(state[key]);
     for (const b of $(gridId).children) b.classList.toggle("on", set.has(b.dataset.v));
@@ -644,7 +723,7 @@ async function render() {
 
   const highlightMode = state.chart !== "trend" && state.selMode === "highlight";
   const filterState = { ...state, teams: highlightMode ? [] : state.teams, players: highlightMode ? [] : state.players };
-  const rows = filterRows(tables, filterState);
+  const rows = filterRows(tables, filterState, sport);
   const ctx = { tables, rows, metrics, highlightMode };
   current.draw = () => {
     $("legend").replaceChildren();
@@ -659,9 +738,18 @@ async function render() {
 
 function windowText() {
   const s = state.seasons;
-  const seasons = s.length === 1 ? `${s[0]}` : s.length === s[s.length - 1] - s[0] + 1 ? `${s[0]}–${s[s.length - 1]}` : s.join(", ");
-  const weeks = state.stype === "P" ? "playoffs" : state.weekFrom === 1 && state.weekTo === 18 ? (state.stype === "RP" ? "regular season + playoffs" : "regular season") : `weeks ${state.weekFrom}–${state.weekTo}${state.stype === "RP" ? " + playoffs" : ""}`;
-  const parts = [`${seasons} ${weeks}`];
+  const lab = (y) => sport.seasonLabel(meta, y);
+  const seasons = s.length === 1 ? lab(s[0]) : s.length === s[s.length - 1] - s[0] + 1 ? `${lab(s[0])} to ${lab(s[s.length - 1])}` : s.map(lab).join(", ");
+  const plus = state.stype === "RP" ? " + playoffs" : "";
+  let when;
+  if (state.stype === "P") when = "playoffs";
+  else if (sport.time === "week") {
+    when = state.weekFrom === 1 && state.weekTo === (sport.regWeeks || 18) ? `regular season${plus}` : `weeks ${state.weekFrom}–${state.weekTo}${plus}`;
+  } else {
+    const ms = (sport.seasonMonths || []).filter((m) => state.months.includes(m));
+    when = ms.length ? `${ms.map((m) => sport.monthName(m)).join(", ")}${state.stype === "RP" ? " (incl. playoffs)" : ""}` : `regular season${plus}`;
+  }
+  const parts = [`${seasons} ${when}`];
   if (state.opps.length) parts.push(`vs ${state.opps.join(", ")}`);
   if (state.positions.length && state.entity === "player") parts.push(state.positions.join("/"));
   if (state.teams.length && !(state.chart === "trend") && state.selMode === "filter") parts.push(state.teams.join(", "));
@@ -669,10 +757,16 @@ function windowText() {
 }
 
 // Qualifier: players only. Returns {stat, min}.
+// Auto qualifier stat: the divisor (a volume stat), unless it's games or team context; helper divisors
+// (e.g. MLB "nine-inning units") map to their readable equivalent (innings).
+function autoQualStat(m) {
+  if (state.qualStat !== "auto" && state.qualStat) return state.qualStat;
+  const k = !m.per || m.per === "games" || m.per.startsWith("tm_") ? m.stat : m.per;
+  return sport.qualAlias?.[k] || k;
+}
 function qualifier(metrics, ents) {
   if (state.entity !== "player") return null;
-  const m = metrics[0];
-  let stat = state.qualStat !== "auto" && state.qualStat ? state.qualStat : !m.per || m.per === "games" || m.per.startsWith("tm_") ? m.stat : m.per;
+  const stat = autoQualStat(metrics[0]);
   let min = state.qualMin;
   if (min === "" || min == null) {
     const top = Math.max(0, ...ents.map((e) => e.qual));
@@ -683,16 +777,14 @@ function qualifier(metrics, ents) {
 
 function rankEntities(rows, metrics, { sortBy = "value", defaultN }) {
   // first pass to compute the qualifier stat
-  const m0 = metrics[0];
-  const probeStat = state.entity === "player"
-    ? (state.qualStat !== "auto" && state.qualStat ? state.qualStat : !m0.per || m0.per === "games" || m0.per.startsWith("tm_") ? m0.stat : m0.per)
-    : null;
-  let ents = aggregate(rows, metrics, probeStat);
+  const probeStat = state.entity === "player" ? autoQualStat(metrics[0]) : null;
+  let ents = aggregate(rows, metrics, probeStat, sport);
   const q = qualifier(metrics, ents);
   const pinned = new Set(state.entity === "team" ? state.teams : state.players);
   ents = ents.filter((e) => e.games >= state.minGames && (!q || e.qual >= q.min || pinned.has(e.id)));
   ents = ents.filter((e) => e.vals.every((v) => v.value != null));
-  if (sortBy === "value") ents.sort((a, b) => b.vals[0].value - a.vals[0].value);
+  const dir = state.order === "asc" ? -1 : 1;
+  if (sortBy === "value") ents.sort((a, b) => dir * (b.vals[0].value - a.vals[0].value));
   else ents.sort((a, b) => b.qual - a.qual || b.vals[0].value - a.vals[0].value);
   const n = state.topN === "all" ? Infinity : state.topN === "auto" ? defaultN : Number(state.topN);
   return { ents, n, q };
@@ -705,7 +797,7 @@ function entityLabel(e) {
 }
 
 function drawTrend({ tables, rows, metrics }) {
-  const opts = { bucket: state.bucket, rolling: state.rolling };
+  const opts = { bucket: state.bucket, rolling: state.rolling, seasonLabel: (y) => sport.seasonLabel(meta, y) };
   // Which entities to draw: explicit picks, else top N by the first metric over the window.
   let ids = state.entity === "team" ? state.teams.slice(0, MAX_SERIES) : state.players.slice(0, MAX_SERIES);
   let auto = false;
@@ -720,12 +812,12 @@ function drawTrend({ tables, rows, metrics }) {
   const keyOf = (r) => (r.t.kind === "team" ? r.row[r.t.idx.team] : r.row[r.t.idx.pid]);
   const sel = rows.filter((r) => idSet.has(keyOf(r)));
   // League average uses every team (ignores the team picks), same time window.
-  const lgRows = state.entity === "team" && state.avg ? filterRows(tables, { ...state, teams: [], players: [] }) : null;
+  const lgRows = state.entity === "team" && state.avg ? filterRows(tables, { ...state, teams: [], players: [] }, sport) : null;
 
   let buckets = null;
   const panels = metrics.map((m) => {
     const ts = timeSeries(sel, m, opts, sport);
-    const avg = lgRows ? leagueAverage(lgRows, m, opts) : null;
+    const avg = lgRows ? leagueAverage(lgRows, m, opts, sport) : null;
     if (!buckets || ts.buckets.length > buckets.length) buckets = ts.buckets;
     const series = ids.map((id, i) => {
       const e = ts.series.get(id);
@@ -744,7 +836,7 @@ function drawTrend({ tables, rows, metrics }) {
   buckets = [...allB.values()].sort((a, b) => (a.key < b.key ? -1 : 1));
 
   $("title").textContent = metrics.map((m) => metricLabel(sport, m)).join(" · ");
-  $("subtitle").textContent = `${windowText()}${state.rolling > 1 && state.bucket === "week" ? ` · ${state.rolling}-game rolling` : ""}`;
+  $("subtitle").textContent = `${windowText()}${state.rolling > 1 && state.bucket === "game" ? ` · ${state.rolling}-game rolling` : ""}`;
   // legend (always present for ≥2 series)
   const lg = $("legend");
   if (panels[0].series.length > 1 || panels[0].avg) {
@@ -844,7 +936,7 @@ function drawBar({ rows, metrics, highlightMode }) {
   const label = metricLabel(sport, m);
   const items = shown.map((e) => {
     const lab = entityLabel(e);
-    return { id: e.id, label: isTeam ? lab.label.split(" ").pop() : lab.label, value: e.vals[0].value, logo: sport.logo(e.team, meta), highlight: highlightMode && isPinned(e),
+    return { id: e.id, label: isTeam ? (meta.teams[e.id]?.nick || lab.label.split(" ").pop()) : lab.label, value: e.vals[0].value, logo: sport.logo(e.team, meta), highlight: highlightMode && isPinned(e),
       sub: isTeam ? `${e.games} games` : `${e.pos} · ${e.team}`, extra: extraRows(e, [m]) };
   });
   $("title").textContent = label;
@@ -952,7 +1044,7 @@ function renderSaved() {
   list.forEach((m, i) => {
     const li = document.createElement("li");
     const open = document.createElement("button"); open.textContent = m.name;
-    open.onclick = () => { state = sanitize(m.state); update(); };
+    open.onclick = () => { openState(m.state); writeHash(); };
     const del = document.createElement("button"); del.textContent = "×"; del.title = "Delete"; del.setAttribute("aria-label", `Delete ${m.name}`);
     del.onclick = () => { const l = savedModels(); l.splice(i, 1); saveModels(l); renderSaved(); };
     li.append(open, del);
