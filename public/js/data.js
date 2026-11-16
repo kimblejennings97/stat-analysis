@@ -1,12 +1,25 @@
 // Data loading + aggregation. All ratio metrics are computed as sum(numerator) / sum(denominator)
 // over the window, never as an average of per-game ratios.
 
-const cache = new Map(); // `${sport}/${kind}_${season}` -> Promise<table>
+import { dataBases } from "./config.js";
 
+const cache = new Map(); // `${sport}/${kind}_${season}` -> Promise<table>
+let base = null; // resolved data location (see config.js)
+
+// meta.json is tiny and always re-fetched (a time-stamped query skips browser + CDN caches),
+// so a data refresh shows up without redeploying the site.
 export async function loadMeta(sport) {
-  const r = await fetch(`data/${sport.id}/meta.json`, { cache: "no-cache" });
-  if (!r.ok) throw new Error(`meta.json ${r.status}`);
-  return r.json();
+  let lastErr;
+  for (const b of dataBases()) {
+    try {
+      const r = await fetch(`${b}/${sport.id}/meta.json?t=${Date.now()}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(`meta.json ${r.status} from ${b}`);
+      const meta = await r.json();
+      base = b;
+      return meta;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
 }
 
 // table = { kind, season, cols, idx: {col: i}, rows, people? }
@@ -14,7 +27,8 @@ export function loadTable(sport, meta, kind, season) {
   const key = `${sport.id}/${kind}_${season}`;
   if (!cache.has(key)) {
     const v = meta.updated ? `?v=${encodeURIComponent(meta.updated)}` : "";
-    const p = fetch(`data/${sport.id}/${kind === "team" ? "teams" : "players"}_${season}.json${v}`)
+    // Season files are immutable per refresh: `?v=<updated>` busts caches only when the data changes.
+    const p = fetch(`${base}/${sport.id}/${kind === "team" ? "teams" : "players"}_${season}.json${v}`)
       .then((r) => {
         if (!r.ok) throw new Error(`${kind} ${season}: ${r.status}`);
         return r.json();

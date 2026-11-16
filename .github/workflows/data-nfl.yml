@@ -1,0 +1,37 @@
+name: Data · NFL
+
+# Rebuilds NFL stats from nflverse and publishes them to the `data` branch.
+# This does NOT deploy the site: the site reads the data branch directly, so refreshes cost no Netlify deploys.
+# nflverse updates overnight after games, so in season this runs every morning; off season, weekly.
+# (Copy this file per sport with its own schedule, e.g. data-nba.yml running several times a day.)
+
+on:
+  schedule:
+    - cron: "0 11 * 1,2,9-12 *"   # daily 11:00 UTC, September–February
+    - cron: "0 11 * 3-8 2"        # Tuesdays, March–August
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/refresh-nfl.mjs", "scripts/publish-data.sh", ".github/workflows/data-nfl.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-branch   # shared by every sport's workflow so pushes to `data` never race
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build NFL data from nflverse
+        run: node scripts/refresh-nfl.mjs --all
+      - name: Publish to the data branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/publish-data.sh nfl

@@ -1,0 +1,13 @@
+# Static site: no build step. Stats data is NOT deployed here; the site loads it from the repo's
+# `data` branch (see public/js/config.js), so data refreshes never use a Netlify deploy.
+[build]
+  publish = "public"
+  command = ""
+  # Skip the build (no deploy) unless something the site serves changed, and never build the data branch.
+  ignore = "if [ \"$BRANCH\" = \"data\" ]; then exit 0; fi; git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- public netlify.toml"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

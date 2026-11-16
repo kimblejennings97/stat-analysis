@@ -46,7 +46,16 @@
       <section>
         <h2 id="metricsTitle">Stats</h2>
         <div id="metrics"></div>
-        <button class="link-btn" id="addMetric">+ Add another stat</button>
+        <div class="picker">
+          <p class="hint" id="pickHint"></p>
+          <div class="tag-group-name">Quick picks</div>
+          <div class="tag-chips presets" id="presets"></div>
+          <div class="picker-tools">
+            <input id="statSearch" type="search" placeholder="Search all stats" autocomplete="off" aria-label="Search stats">
+            <div class="seg small" id="sideSeg" role="group" aria-label="Side of the ball"></div>
+          </div>
+          <div class="tag-groups" id="statGroups"></div>
+        </div>
       </section>
 
       <section>

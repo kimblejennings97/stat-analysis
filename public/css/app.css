@@ -95,10 +95,7 @@ details summary { cursor: pointer; color: var(--text-secondary); font-size: 13px
 .metric-tag { font-size: 11px; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
 .metric-tag .key { width: 14px; height: 2px; border-radius: 1px; }
 .metric .remove { border: 0; background: none; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; }
-.metric select { margin-bottom: 6px; }
-.metric .per-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
 .metric .pct { font-size: 12px; display: flex; gap: 4px; align-items: center; white-space: nowrap; color: var(--text-secondary); }
-.metric .preset { font-size: 12px; color: var(--text-secondary); }
 
 /* logo grid */
 .logo-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin-bottom: 8px; }
@@ -215,3 +212,41 @@ body:not(.e-team) .team-only, body.c-trend .scatter-bar-only { display: none !im
   .jump { display: inline-block; }
   .logo-grid { grid-template-columns: repeat(8, 1fr); }
 }
+
+/* ---------- tag picker (recipe-box style pills) */
+.picker { margin-top: 4px; }
+.picker .hint { margin: 2px 0 10px; }
+.picker-tools { display: grid; gap: 6px; margin: 12px 0 8px; }
+.picker-tools .seg { margin: 0; }
+.tag-groups { display: grid; gap: 12px; max-height: 380px; overflow: auto; padding: 2px 2px 6px; }
+.tag-groups.compact { max-height: 260px; gap: 10px; }
+.tag-group-name { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-chips.presets { margin-bottom: 4px; }
+.tag-chip {
+  border: 1.5px solid var(--axis); background: var(--surface-1); border-radius: 999px;
+  padding: 5px 12px; min-height: 32px; font-weight: 700; font-size: 13px; color: var(--text-primary);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; line-height: 1.2; text-align: left;
+  transition: background .12s, border-color .12s;
+}
+.tag-chip:hover { border-color: var(--accent); background: var(--accent-wash); }
+.tag-chip.on { background: var(--accent); border-color: transparent; color: #fff; }
+.tag-chip.preset { border-style: dashed; }
+.tag-chip.preset.on { border-style: solid; }
+.tag-chip.ghost { border-style: dashed; color: var(--accent); background: transparent; }
+.tag-chip.big { font-size: 14px; padding: 6px 14px; min-height: 36px; }
+.tag-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: var(--accent); font-size: 11px; font-weight: 800; }
+.tag-chip:not(.on) .tag-badge { background: var(--accent-wash); }
+
+/* metric cards */
+.metric { border: 1.5px solid transparent; }
+.metric.active { border-color: var(--accent); }
+.metric .editing { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--accent); margin-left: 4px; }
+.metric-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.metric .mode-seg { margin-bottom: 8px; background: var(--surface-1); }
+.metric .mode-seg button.on { background: var(--surface-2); }
+.per-line { margin: 0; }
+.per-line .divide { font-size: 18px; font-weight: 700; color: var(--text-secondary); }
+.tag-chip.divisor { background: var(--surface-1); color: var(--text-primary); border-color: var(--accent); }
+.div-picker { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+.link-btn.small { font-size: 12px; font-weight: 600; text-align: left; }

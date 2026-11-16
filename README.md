@@ -1,6 +1,6 @@
 # Stat Analysis
 
-Build sports stat models in the browser. Pick stats, filters and a chart type, and the chart redraws instantly. NFL for now; built to add more sports.
+Build sports stat models in the browser. Tap stats (tags, grouped by Offense / Defense / Special teams), pick filters and a chart type, and the chart redraws instantly. NFL for now; built to add more sports.
 
 **Chart types**
 - **Trend line**: time on the x-axis (by game or by season, optional rolling average). Several stats draw as stacked panels that share the same teams/players. Team logos label the line ends, with an optional league-average line.
@@ -42,17 +42,18 @@ npx http-server public -p 8765 -c-1  # or: py -m http.server 8765 -d public
 ```
 Then open http://localhost:8765.
 
-## Deploy / weekly refresh
+## Hosting and data refresh (no redeploys)
 
-`.github/workflows/refresh-and-deploy.yml` rebuilds the data from nflverse and publishes `public/` to GitHub Pages:
-- on every push to `main`,
-- every Tuesday 15:00 UTC (after Monday Night Football) and Thursday 12:00 UTC (late PFR corrections),
-- on demand from the Actions tab ("Run workflow").
+The site and the data are deployed separately, so data refreshes never cost a Netlify deploy:
 
-The data JSON is generated and never committed.
+- **Site:** Netlify serves `public/` (see `netlify.toml`: no build step; builds are skipped unless `public/` or `netlify.toml` changed). It only redeploys when the code changes.
+- **Data:** `.github/workflows/data-nfl.yml` rebuilds the JSON from nflverse and `scripts/publish-data.sh` force-pushes it to the repo's `data` branch as one squashed commit. The history doesn't grow, other sports' folders are kept, and nothing is pushed if only the timestamp changed. The site reads it from `https://raw.githubusercontent.com/kimblejennings97/stat-analysis/data/<sport>/...` (CORS-enabled, gzip, about 5 min CDN cache). `meta.json` is always fetched fresh; season files are cache-busted by the refresh timestamp.
+- **NFL schedule:** daily at 11:00 UTC from September to February (nflverse updates overnight after games), Tuesdays from March to August, plus on demand from the Actions tab.
+- Locally, the site uses `public/data/` if you've built it, otherwise the remote copy. Add `?data=remote` or `?data=local` to force one (`public/js/config.js`).
 
 ## Adding a sport
 
 1. Write `scripts/refresh-<sport>.mjs` that outputs `public/data/<sport>/meta.json`, `teams_<season>.json` and `players_<season>.json` in the same columnar shape (`cols` + `rows`; the first columns are `team, opp, week, stype` / `pid, team, opp, week, stype`, plus `people` for players).
 2. Add `public/js/sports/<sport>.js` (labels, groups, derived stats, presets), modeled on `nfl.js`.
-3. Register it in `SPORTS` in `public/js/app.js`, enable its button in `index.html`, and add the script to the workflow.
+3. Register it in `SPORTS` in `public/js/app.js` and enable its button in `index.html`.
+4. Copy `.github/workflows/data-nfl.yml` to `data-<sport>.yml` with that sport's script and its own cron (e.g. several times a day for daily sports). All data workflows share one concurrency group, so they never clash on the `data` branch.

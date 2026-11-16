@@ -2,18 +2,21 @@
 
 Real-time sports stat model builder. A static site (vanilla JS ES modules + D3 7.9 from cdnjs, no build step) that reads JSON generated from nflverse. NFL only for now; built so more sports can be added (see README "Adding a sport").
 
-- Deploy: GitHub Actions (`.github/workflows/refresh-and-deploy.yml`) rebuilds the data and publishes `public/` to GitHub Pages on every push to `main`, plus Tue/Thu cron. **A push to `main` is a production deploy**, so commit/push only when asked.
-- Data JSON (`public/data/*/*.json`) is generated and git-ignored. Locally: `node scripts/refresh-nfl.mjs --all`, then serve `public/` (e.g. `py -m http.server 8765 -d public`).
+- Hosting: Netlify serves `public/` (netlify.toml, no build step). **A push to `main` that touches `public/` is a production deploy (and costs Netlify credits)**, so commit/push only when asked, and batch changes.
+- Data is NOT deployed with the site: `.github/workflows/data-<sport>.yml` builds it and `scripts/publish-data.sh` force-pushes it to the `data` branch; the site reads it from raw.githubusercontent.com (`public/js/config.js`). Never commit data JSON to `main`.
+- Local: `node scripts/refresh-nfl.mjs --all`, then serve `public/` (e.g. `py -m http.server 8765 -d public`). Localhost prefers local data, falls back to remote.
 
 ## File map
 ```
 scripts/refresh-nfl.mjs   nflverse -> public/data/nfl/{meta,teams_<yr>,players_<yr>}.json (FIRST_SEASON = 2018)
 public/index.html         layout: model builder sidebar + chart stage
 public/css/app.css        tokens (light/dark, validated 8-color categorical palette), layout, chart marks
+public/js/config.js       where data is loaded from (remote data branch vs local)
 public/js/app.js          state (mirrored in the URL hash), controls, chart drawing glue, table/CSV, saved models
 public/js/data.js         table loading/cache, derived columns, filtering, aggregation, time series, league avg, OLS fit
 public/js/charts.js       D3 renderers: renderTrend (small multiples), renderScatter (logos, fit), renderBar
-public/js/sports/nfl.js   stat labels, groups, "per" labels, derived stats, presets, positions
+public/js/sports/nfl.js   stat labels, groups, "per" labels, derived stats, presets, positions,
+                          side()/phase()/divisors(): which divisors are offered for a stat (same side of the ball first)
 ```
 
 ## Rules that matter
@@ -25,3 +28,4 @@ public/js/sports/nfl.js   stat labels, groups, "per" labels, derived stats, pres
 - Routes run isn't available from free sources; "per route" presets use offensive snaps and say so.
 - Chart conventions: one y-axis per chart (several stats become stacked panels), series colors assigned by pick order (max 8), legend for 2+ series, tooltips on every chart, team logos as identity.
 - Untrusted names go into the DOM via textContent only.
+- Stat selection is tag-based (recipe-box style pills). Divisors are filtered by side of the ball: opportunity counts on the same side are "best fit", other same-side stats come next, and the other side sits behind "show all". Mirror stats (def_sacks vs opp_sacks_suffered) are excluded.

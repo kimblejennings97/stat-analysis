@@ -100,11 +100,13 @@ function buildStaticControls() {
   seg("stypeSeg", "stype");
   seg("selModeSeg", "selMode");
 
-  $("addMetric").onclick = () => {
-    if (state.metrics.length >= MAX_METRICS) return;
-    state.metrics.push(defaultSecond());
-    update();
-  };
+  const sideSeg = $("sideSeg");
+  for (const [v, txt] of sport.sides) {
+    const b = document.createElement("button");
+    b.type = "button"; b.dataset.v = v; b.textContent = txt;
+    sideSeg.appendChild(b);
+  }
+  setupPicker();
 
   // seasons
   const sEl = $("seasons");
@@ -255,82 +257,248 @@ function metricRoleNames() {
   return state.metrics.map((_, i) => `Stat ${i + 1}`);
 }
 
+// ---- tag-style stat builder (UI-only state lives here, not in the URL)
+const ui = { slot: 0, side: "all", query: "", divOpen: -1, divQuery: "", divAll: false };
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function tagChip(text, { on = false, badge = null, title = "", onClick, cls = "" } = {}) {
+  const b = el("button", `tag-chip ${on ? "on" : ""} ${cls}`.trim());
+  b.type = "button";
+  b.setAttribute("aria-pressed", on);
+  if (title) b.title = title;
+  b.appendChild(document.createTextNode(text));
+  if (badge != null) b.appendChild(el("span", "tag-badge", badge));
+  if (onClick) b.onclick = onClick;
+  return b;
+}
+const groupBy = (keys) => {
+  const g = new Map();
+  for (const k of keys) {
+    const name = sport.group(k);
+    if (!g.has(name)) g.set(name, []);
+    g.get(name).push(k);
+  }
+  return sport.groupOrder.filter((n) => g.has(n)).map((n) => [n, g.get(n).sort((a, b) => sport.label(a).localeCompare(sport.label(b)))])
+    .concat([...g.keys()].filter((n) => !sport.groupOrder.includes(n)).map((n) => [n, g.get(n)]));
+};
+const matchQ = (k, q) => !q || sport.label(k).toLowerCase().includes(q) || k.includes(q);
+
+function slotCount() { return state.chart === "trend" ? state.metrics.length : state.chart === "scatter" ? 2 : 1; }
+
+// A stat chip was tapped in the main picker.
+function chooseStat(key) {
+  const fresh = { stat: key, per: null, pct: false };
+  if (state.chart === "trend") {
+    const i = state.metrics.findIndex((m) => m.stat === key);
+    if (i >= 0) { if (state.metrics.length > 1) { state.metrics.splice(i, 1); ui.slot = 0; } }
+    else if (state.metrics.length < MAX_METRICS) { state.metrics.push(fresh); ui.slot = state.metrics.length - 1; }
+    else { toast(`Up to ${MAX_METRICS} stats. Remove one first.`); return; }
+  } else {
+    const m = state.metrics[ui.slot] || (state.metrics[ui.slot] = fresh);
+    m.stat = key;
+    // keep the "per" choice only if that divisor still makes sense for the new stat
+    if (m.per && m.per !== "games") {
+      const d = sport.divisors(key, statOptions[state.entity]);
+      if (!d.suggested.includes(m.per) && !d.related.includes(m.per)) { m.per = null; m.pct = false; }
+    }
+  }
+  update();
+}
+function choosePreset(p) {
+  const m = pick(p);
+  if (state.chart === "trend") {
+    const i = state.metrics.findIndex((x) => x.stat === m.stat && x.per === m.per);
+    if (i >= 0) { if (state.metrics.length > 1) state.metrics.splice(i, 1); }
+    else if (state.metrics.length < MAX_METRICS) state.metrics.push(m);
+    else state.metrics[ui.slot] = m;
+  } else state.metrics[ui.slot] = m;
+  update();
+}
+
 function renderMetricRows() {
+  const roles = metricRoleNames();
+  const n = slotCount();
+  if (ui.slot >= n) ui.slot = 0;
+  $("metricsTitle").textContent = state.chart === "scatter" ? "Axes" : state.chart === "bar" ? "Stat" : "Stats";
   const box = $("metrics");
   box.replaceChildren();
-  const roles = metricRoleNames();
-  const shown = state.chart === "trend" ? state.metrics : state.metrics.slice(0, roles.length);
-  $("metricsTitle").textContent = state.chart === "scatter" ? "Axes" : state.chart === "bar" ? "Stat" : "Stats";
+  const shown = state.metrics.slice(0, n);
+  const multiSlot = state.chart !== "trend" && n > 1;
+
   shown.forEach((m, i) => {
-    const row = document.createElement("div");
-    row.className = "metric";
-    const head = document.createElement("div");
-    head.className = "metric-head";
-    const tag = document.createElement("span");
-    tag.className = "metric-tag";
-    tag.textContent = roles[i];
+    const card = el("div", `metric ${multiSlot && ui.slot === i ? "active" : ""}`);
+    if (multiSlot) {
+      card.onclick = (e) => { if (e.target === card || e.target.closest(".metric-head")) { ui.slot = i; renderMetricRows(); } };
+    }
+    const head = el("div", "metric-head");
+    const tag = el("span", "metric-tag", roles[i]);
+    if (multiSlot && ui.slot === i) tag.appendChild(el("span", "editing", "· tap a stat below to change"));
     head.appendChild(tag);
     if (state.chart === "trend" && state.metrics.length > 1) {
-      const rm = document.createElement("button");
-      rm.className = "remove"; rm.textContent = "×"; rm.title = "Remove"; rm.setAttribute("aria-label", `Remove ${roles[i]}`);
-      rm.onclick = () => { state.metrics.splice(i, 1); update(); };
+      const rm = el("button", "remove", "×");
+      rm.title = "Remove"; rm.setAttribute("aria-label", `Remove ${sport.label(m.stat)}`);
+      rm.onclick = () => { state.metrics.splice(i, 1); ui.slot = 0; ui.divOpen = -1; update(); };
       head.appendChild(rm);
     }
-    row.appendChild(head);
+    card.appendChild(head);
 
-    // quick presets
-    const pre = document.createElement("select");
-    pre.className = "preset";
-    pre.add(new Option("Quick pick…", ""));
-    sport.presets[state.entity].forEach((p, j) => pre.add(new Option(p.name + (p.note ? ` (${p.note})` : ""), j)));
-    pre.onchange = () => { if (pre.value !== "") { state.metrics[i] = pick(sport.presets[state.entity][pre.value]); update(); } };
-    row.appendChild(pre);
+    // the stat itself, as a filled tag; tapping it targets this slot
+    const statLine = el("div", "metric-line");
+    statLine.appendChild(tagChip(sport.label(m.stat), {
+      on: true, cls: "big", title: multiSlot ? "Tap a stat in the list below to replace" : "",
+      onClick: () => { ui.slot = i; renderMetricRows(); $("statSearch").focus({ preventScroll: true }); },
+    }));
+    card.appendChild(statLine);
 
-    const statSel = statSelect(m.stat);
-    statSel.setAttribute("aria-label", `${roles[i]} stat`);
-    statSel.onchange = () => { m.stat = statSel.value; update(); };
-    row.appendChild(statSel);
+    // Total | Per game | Per stat
+    const mode = !m.per ? "total" : m.per === "games" ? "games" : "per";
+    const segEl = el("div", "seg small mode-seg");
+    segEl.setAttribute("role", "group");
+    segEl.setAttribute("aria-label", "Show as");
+    for (const [v, txt] of [["total", "Total"], ["games", "Per game"], ["per", "Per stat ÷"]]) {
+      const b = el("button", v === mode ? "on" : "", txt);
+      b.type = "button";
+      b.setAttribute("aria-pressed", v === mode);
+      b.onclick = () => {
+        if (v === mode) return;
+        if (v === "total") { m.per = null; m.pct = false; }
+        else if (v === "games") { m.per = "games"; m.pct = false; }
+        else {
+          const d = sport.divisors(m.stat, statOptions[state.entity]);
+          m.per = d.suggested.find((k) => k !== "games") || d.suggested[0] || "games";
+          ui.divOpen = i; ui.divQuery = ""; ui.divAll = false;
+        }
+        update();
+      };
+      segEl.appendChild(b);
+    }
+    card.appendChild(segEl);
 
-    const perRow = document.createElement("div");
-    perRow.className = "per-row";
-    const mode = document.createElement("select");
-    mode.setAttribute("aria-label", `${roles[i]} show as`);
-    mode.add(new Option("Total", "total"));
-    mode.add(new Option("Per game", "games"));
-    mode.add(new Option("Per another stat…", "per"));
-    mode.value = !m.per ? "total" : m.per === "games" ? "games" : "per";
-    mode.onchange = () => {
-      if (mode.value === "total") { m.per = null; m.pct = false; }
-      else if (mode.value === "games") { m.per = "games"; m.pct = false; }
-      else { m.per = state.entity === "team" ? "off_plays" : "offense_snaps"; }
-      update();
-    };
-    perRow.appendChild(mode);
     if (m.per && m.per !== "games") {
-      const pct = document.createElement("label");
-      pct.className = "pct";
+      const perLine = el("div", "metric-line per-line");
+      perLine.appendChild(el("span", "divide", "÷"));
+      perLine.appendChild(tagChip(sport.label(m.per), {
+        on: true, cls: "divisor", badge: ui.divOpen === i ? "▴" : "▾", title: "Change what it's divided by",
+        onClick: () => { ui.divOpen = ui.divOpen === i ? -1 : i; ui.divQuery = ""; ui.divAll = false; renderMetricRows(); },
+      }));
+      const pct = el("label", "pct");
       const cb = document.createElement("input");
       cb.type = "checkbox"; cb.checked = !!m.pct;
       cb.onchange = () => { m.pct = cb.checked; update(); };
       pct.append(cb, document.createTextNode("as %"));
-      perRow.appendChild(pct);
+      perLine.appendChild(pct);
+      card.appendChild(perLine);
+      if (ui.divOpen === i) card.appendChild(divisorPicker(m));
     }
-    row.appendChild(perRow);
-    if (m.per && m.per !== "games") {
-      const denSel = statSelect(m.per);
-      denSel.setAttribute("aria-label", `${roles[i]} divided by`);
-      denSel.onchange = () => { m.per = denSel.value; update(); };
-      const lab = document.createElement("label");
-      lab.className = "field";
-      lab.style.margin = "6px 0 0";
-      lab.append(document.createTextNode("÷ divided by"), denSel);
-      row.appendChild(lab);
-    }
-    box.appendChild(row);
+    box.appendChild(card);
   });
-  const add = $("addMetric");
-  add.style.display = state.chart === "trend" ? "" : "none";
-  add.disabled = state.metrics.length >= MAX_METRICS;
+  renderPicker();
+}
+
+// Divisor picker: opportunity counts on the same side of the ball first, then other same-side stats.
+function divisorPicker(m) {
+  const wrap = el("div", "div-picker");
+  const input = document.createElement("input");
+  input.type = "search"; input.placeholder = "Search divisors"; input.value = ui.divQuery;
+  input.setAttribute("aria-label", "Search divisors");
+  const list = el("div", "tag-groups compact");
+  const draw = () => {
+    list.replaceChildren();
+    const q = ui.divQuery.trim().toLowerCase();
+    const d = sport.divisors(m.stat, statOptions[state.entity]);
+    const sideName = { O: "offense", D: "defense", ST: "special teams", N: "" }[sport.side(m.stat)];
+    const sections = [[`Best fit${sideName ? ` (${sideName} opportunities)` : ""}`, d.suggested.filter((k) => matchQ(k, q))]];
+    if (q || ui.divAll) for (const [g, ks] of groupBy(d.related.filter((k) => matchQ(k, q)))) sections.push([g, ks]);
+    else if (d.related.length) sections.push([`More ${sideName || "related"} stats`, null]);
+    if (ui.divAll) for (const [g, ks] of groupBy(d.rest.filter((k) => matchQ(k, q)))) sections.push([`Other side: ${g}`, ks]);
+    for (const [name, keys] of sections) {
+      if (keys && !keys.length) continue;
+      const grp = el("div", "tag-group");
+      grp.appendChild(el("div", "tag-group-name", name));
+      const chips = el("div", "tag-chips");
+      if (!keys) {
+        chips.appendChild(tagChip(`Show ${d.related.length} more`, { cls: "ghost", onClick: () => { ui.divAll = true; draw(); } }));
+      } else {
+        for (const k of keys) chips.appendChild(tagChip(sport.label(k), { on: k === m.per, onClick: () => { m.per = k; ui.divOpen = -1; update(); } }));
+      }
+      grp.appendChild(chips);
+      list.appendChild(grp);
+    }
+    if (ui.divAll && !q) {
+      const less = tagChip("Show fewer", { cls: "ghost", onClick: () => { ui.divAll = false; draw(); } });
+      list.appendChild(less);
+    } else if (!ui.divAll && d.rest.length) {
+      const all = el("button", "link-btn small", "Show all stats, including the other side of the ball");
+      all.type = "button";
+      all.onclick = () => { ui.divAll = true; draw(); };
+      list.appendChild(all);
+    }
+    if (!list.children.length) list.appendChild(el("p", "hint", "No stats match."));
+  };
+  input.oninput = () => { ui.divQuery = input.value; draw(); };
+  draw();
+  wrap.append(input, list);
+  return wrap;
+}
+
+// Main stat picker: quick picks + searchable, grouped tags.
+function renderPicker() {
+  const used = new Map(); // stat -> badge
+  const n = slotCount();
+  state.metrics.slice(0, n).forEach((m, i) => {
+    used.set(m.stat, state.chart === "scatter" ? ["Y", "X"][i] : state.chart === "trend" && n > 1 ? String(i + 1) : "");
+  });
+
+  const hint = $("pickHint");
+  hint.textContent = state.chart === "trend"
+    ? `Tap stats to add or remove them (up to ${MAX_METRICS}). Each one gets its own panel.`
+    : state.chart === "scatter" ? `Tapping a stat sets the ${metricRoleNames()[ui.slot]}. Tap the other axis card to switch.`
+    : "Tap a stat to rank by it.";
+
+  const pre = $("presets");
+  pre.replaceChildren();
+  for (const p of sport.presets[state.entity]) {
+    const on = state.metrics.slice(0, n).some((m) => m.stat === p.stat && (m.per || null) === (p.per || null));
+    pre.appendChild(tagChip(p.name, { on, cls: "preset", title: p.note || "", onClick: () => choosePreset(p) }));
+  }
+
+  for (const b of $("sideSeg").children) {
+    b.classList.toggle("on", b.dataset.v === ui.side);
+    b.setAttribute("aria-pressed", b.dataset.v === ui.side);
+  }
+  const q = ui.query.trim().toLowerCase();
+  const keys = statOptions[state.entity].filter((k) => sport.pickable(k) && matchQ(k, q) &&
+    (ui.side === "all" || q || sport.side(k) === ui.side || sport.side(k) === "N"));
+  const box = $("statGroups");
+  box.replaceChildren();
+  for (const [g, ks] of groupBy(keys)) {
+    const grp = el("div", "tag-group");
+    grp.appendChild(el("div", "tag-group-name", g));
+    const chips = el("div", "tag-chips");
+    for (const k of ks) {
+      const on = used.has(k);
+      chips.appendChild(tagChip(sport.label(k), { on, badge: on && used.get(k) ? used.get(k) : null, onClick: () => chooseStat(k) }));
+    }
+    grp.appendChild(chips);
+    box.appendChild(grp);
+  }
+  if (!keys.length) box.appendChild(el("p", "hint", "No stats match."));
+}
+
+function setupPicker() {
+  const s = $("statSearch");
+  s.oninput = () => { ui.query = s.value; renderPicker(); };
+  $("sideSeg").onclick = (e) => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    ui.side = b.dataset.v;
+    renderPicker();
+  };
 }
 
 function syncControls() {

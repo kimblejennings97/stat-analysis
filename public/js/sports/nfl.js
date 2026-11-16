@@ -91,8 +91,8 @@ const PER_LABELS = {
 };
 function perLabel(key) {
   if (PER_LABELS[key]) return PER_LABELS[key];
-  const l = lc(label(key)).replace(/s*(.*)$/, "");
-  return l.replace(/(w+)$/, (w) => (/ies$/.test(w) ? w.slice(0, -3) + "y" : /[^s]s$/.test(w) ? w.slice(0, -1) : w));
+  const l = lc(label(key)).replace(/\s*\(.*\)$/, "");
+  return l.replace(/(\w+)$/,(w) => (/ies$/.test(w) ? w.slice(0, -3) + "y" : /[^s]s$/.test(w) ? w.slice(0, -1) : w));
 }
 
 function label(key) {
@@ -103,8 +103,71 @@ function label(key) {
 const lc = (s) => (/^[A-Z]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
 
 function group(key) {
-  if (key.startsWith("opp_")) return "Opponent / allowed";
+  if (key.startsWith("opp_")) return "Allowed: " + group(key.slice(4));
   return GROUPS.find(([, re]) => re.test(key))[0];
+}
+const BASE_GROUPS = GROUPS.map((g) => g[0]);
+const GROUP_ORDER = [
+  ...BASE_GROUPS.slice(0, BASE_GROUPS.indexOf("Defense") + 1),
+  ...["Overall", "Passing", "Pressure (QB)", "Rushing", "Receiving", "Snaps & plays"].map((g) => "Allowed: " + g),
+  ...BASE_GROUPS.slice(BASE_GROUPS.indexOf("Defense") + 1),
+];
+
+// ---- side of the ball / phase: drives the stat filter and which divisors are offered
+// O = offense, D = defense, ST = special teams, N = neutral (results, games, fantasy).
+const SIDE_RE = [
+  ["N", /^(games|wins|losses|ties|home_games|spread_line|total_line|point_diff|penalt|fantasy|misc_yards)/],
+  ["ST", /^(fg_|pat_|gwfg_|pt_|punt_return|kickoff_return|special_teams|st_)/],
+  ["D", /^(def_|cov_|missed_tackles|tackles|defense_snaps|tm_def_plays|points_against|fumble_recovery_opp)/],
+];
+function side(key) {
+  if (key.startsWith("opp_")) {
+    const b = side(key.slice(4));
+    return b === "O" ? "D" : b === "D" ? "O" : b;
+  }
+  return (SIDE_RE.find(([, re]) => re.test(key)) || ["O"])[0];
+}
+const PASS_RE = /^(completions|attempts|passing_|sack|cpoe|dropbacks|net_pass|bad_throws|drops|pressures_faced|hurries_faced|hits_faced|blitzes_faced|receiv|receptions|targets|tm_targets|tm_air|tm_pass|rec_|def_sack|def_qb|def_pressures|def_hurries|def_blitzes|cov_|def_interception|def_pass_def)/;
+const RUSH_RE = /^(carries|rushing_|rush_|tm_carries)/;
+function phase(key) {
+  const k = key.replace(/^opp_/, "");
+  return PASS_RE.test(k) ? "pass" : RUSH_RE.test(k) ? "rush" : "all";
+}
+// Opportunity counts: the natural things to divide by.
+const VOLUME_RE = /^(games|attempts|completions|dropbacks|carries|targets|receptions|touches|off_plays|def_plays|st_plays|offense_snaps|defense_snaps|st_snaps|pressures_faced|hurries_faced|hits_faced|blitzes_faced|sacks_suffered|def_pressures|def_blitzes|def_hurries|def_sacks|cov_targets|cov_completions|tackles_combined|pt_att|fg_att|pat_att|punt_returns|kickoff_returns|tm_|passing_first_downs|rushing_first_downs|receiving_first_downs)$|^tm_/;
+const isVolume = (key) => VOLUME_RE.test(key.replace(/^opp_/, ""));
+
+// Can this be picked as the main stat? (Team context, mirrored defensive opp_ stats and helper columns are divisor-only.)
+function pickable(key) {
+  if (key.startsWith("tm_")) return false;
+  if (key.startsWith("opp_") && side(key.slice(4)) !== "O") return false;
+  return true;
+}
+
+// The same event counted from the other team's box score (dividing by it gives ~1).
+const MIRRORS = {
+  def_sacks: "opp_sacks_suffered", def_interceptions: "opp_passing_interceptions", def_pressures: "opp_pressures_faced",
+  def_qb_hits: "opp_hits_faced", def_blitzes: "opp_blitzes_faced", sacks_suffered: "opp_def_sacks",
+  pressures_faced: "opp_def_pressures", passing_interceptions: "opp_def_interceptions", blitzes_faced: "opp_def_blitzes",
+  points_for: "opp_points_for", def_plays: "opp_off_plays", off_plays: "opp_def_plays",
+};
+
+// Divisors for a stat, best first: { suggested, related, rest }.
+// suggested = opportunity counts on the same side of the ball (same phase first);
+// related = any other stat on that side (e.g. sacks per opp. rushing yards);
+// rest = everything else (hidden behind "show all").
+function divisors(stat, list) {
+  const s = side(stat), p = phase(stat);
+  const sameSide = (k) => s === "N" || side(k) === s || side(k) === "N";
+  const mirror = MIRRORS[stat] || MIRRORS[Object.keys(MIRRORS).find((k) => MIRRORS[k] === stat)];
+  const cands = list.filter((k) => k !== stat && k !== mirror && k !== "cpoe_x_att" &&!(k.startsWith("opp_") && side(k.slice(4)) === "N"));
+  const suggested = cands.filter((k) => k === "games" || (sameSide(k) && isVolume(k)))
+    .sort((a, b) => (a === "games" ? -1 : b === "games" ? 1 : 0) || (phase(b) === p) - (phase(a) === p));
+  const sug = new Set(suggested);
+  const related = cands.filter((k) => !sug.has(k) && sameSide(k));
+  const rel = new Set(related);
+  const rest = cands.filter((k) => !sug.has(k) && !rel.has(k));
+  return { suggested, related, rest };
 }
 
 // Preset metrics. `per` = denominator stat; `pct` shows as a percentage.
@@ -146,7 +209,12 @@ export default {
   label,
   perLabel,
   group,
-  groupOrder: [...GROUPS.map((g) => g[0]).filter((g) => g !== "Misc"), "Opponent / allowed", "Misc"],
+  groupOrder: GROUP_ORDER,
+  side,
+  phase,
+  pickable,
+  divisors,
+  sides: [["O", "Offense"], ["D", "Defense"], ["ST", "Special teams"], ["all", "All"]],
   derived: DERIVED,
   teamOnly: TEAM_ONLY,
   presets: PRESETS,
