@@ -1,0 +1,281 @@
+{
+ "sport": "mlb",
+ "time": "date",
+ "latestSeason": 2026,
+ "seasons": [
+  {
+   "season": 2018,
+   "label": "2018",
+   "maxDate": 20181028,
+   "playerRows": 72105
+  },
+  {
+   "season": 2019,
+   "label": "2019",
+   "maxDate": 20191030,
+   "playerRows": 72287
+  },
+  {
+   "season": 2020,
+   "label": "2020",
+   "maxDate": 20201027,
+   "playerRows": 27517
+  },
+  {
+   "season": 2021,
+   "label": "2021",
+   "maxDate": 20211102,
+   "playerRows": 71888
+  },
+  {
+   "season": 2022,
+   "label": "2022",
+   "maxDate": 20221105,
+   "playerRows": 71006
+  },
+  {
+   "season": 2023,
+   "label": "2023",
+   "maxDate": 20231101,
+   "playerRows": 71849
+  },
+  {
+   "season": 2024,
+   "label": "2024",
+   "maxDate": 20241030,
+   "playerRows": 72160
+  },
+  {
+   "season": 2025,
+   "label": "2025",
+   "maxDate": 20251101,
+   "playerRows": 72534
+  },
+  {
+   "season": 2026,
+   "label": "2026",
+   "maxDate": 20261028,
+   "playerRows": 73164
+  }
+ ],
+ "teams": {
+  "OAK": {
+   "name": "Oakland Athletics",
+   "nick": "Athletics",
+   "league": "American League",
+   "div": "American League West",
+   "logo": "https://www.mlbstatic.com/team-logos/133.svg"
+  },
+  "PIT": {
+   "name": "Pittsburgh Pirates",
+   "nick": "Pirates",
+   "league": "National League",
+   "div": "National League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/134.svg"
+  },
+  "SD": {
+   "name": "San Diego Padres",
+   "nick": "Padres",
+   "league": "National League",
+   "div": "National League West",
+   "logo": "https://www.mlbstatic.com/team-logos/135.svg"
+  },
+  "SEA": {
+   "name": "Seattle Mariners",
+   "nick": "Mariners",
+   "league": "American League",
+   "div": "American League West",
+   "logo": "https://www.mlbstatic.com/team-logos/136.svg"
+  },
+  "SF": {
+   "name": "San Francisco Giants",
+   "nick": "Giants",
+   "league": "National League",
+   "div": "National League West",
+   "logo": "https://www.mlbstatic.com/team-logos/137.svg"
+  },
+  "STL": {
+   "name": "St. Louis Cardinals",
+   "nick": "Cardinals",
+   "league": "National League",
+   "div": "National League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/138.svg"
+  },
+  "TB": {
+   "name": "Tampa Bay Rays",
+   "nick": "Rays",
+   "league": "American League",
+   "div": "American League East",
+   "logo": "https://www.mlbstatic.com/team-logos/139.svg"
+  },
+  "TEX": {
+   "name": "Texas Rangers",
+   "nick": "Rangers",
+   "league": "American League",
+   "div": "American League West",
+   "logo": "https://www.mlbstatic.com/team-logos/140.svg"
+  },
+  "TOR": {
+   "name": "Toronto Blue Jays",
+   "nick": "Blue Jays",
+   "league": "American League",
+   "div": "American League East",
+   "logo": "https://www.mlbstatic.com/team-logos/141.svg"
+  },
+  "MIN": {
+   "name": "Minnesota Twins",
+   "nick": "Twins",
+   "league": "American League",
+   "div": "American League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/142.svg"
+  },
+  "PHI": {
+   "name": "Philadelphia Phillies",
+   "nick": "Phillies",
+   "league": "National League",
+   "div": "National League East",
+   "logo": "https://www.mlbstatic.com/team-logos/143.svg"
+  },
+  "ATL": {
+   "name": "Atlanta Braves",
+   "nick": "Braves",
+   "league": "National League",
+   "div": "National League East",
+   "logo": "https://www.mlbstatic.com/team-logos/144.svg"
+  },
+  "CWS": {
+   "name": "Chicago White Sox",
+   "nick": "White Sox",
+   "league": "American League",
+   "div": "American League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/145.svg"
+  },
+  "MIA": {
+   "name": "Miami Marlins",
+   "nick": "Marlins",
+   "league": "National League",
+   "div": "National League East",
+   "logo": "https://www.mlbstatic.com/team-logos/146.svg"
+  },
+  "NYY": {
+   "name": "New York Yankees",
+   "nick": "Yankees",
+   "league": "American League",
+   "div": "American League East",
+   "logo": "https://www.mlbstatic.com/team-logos/147.svg"
+  },
+  "MIL": {
+   "name": "Milwaukee Brewers",
+   "nick": "Brewers",
+   "league": "National League",
+   "div": "National League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/158.svg"
+  },
+  "LAA": {
+   "name": "Los Angeles Angels",
+   "nick": "Angels",
+   "league": "American League",
+   "div": "American League West",
+   "logo": "https://www.mlbstatic.com/team-logos/108.svg"
+  },
+  "AZ": {
+   "name": "Arizona Diamondbacks",
+   "nick": "D-backs",
+   "league": "National League",
+   "div": "National League West",
+   "logo": "https://www.mlbstatic.com/team-logos/109.svg"
+  },
+  "BAL": {
+   "name": "Baltimore Orioles",
+   "nick": "Orioles",
+   "league": "American League",
+   "div": "American League East",
+   "logo": "https://www.mlbstatic.com/team-logos/110.svg"
+  },
+  "BOS": {
+   "name": "Boston Red Sox",
+   "nick": "Red Sox",
+   "league": "American League",
+   "div": "American League East",
+   "logo": "https://www.mlbstatic.com/team-logos/111.svg"
+  },
+  "CHC": {
+   "name": "Chicago Cubs",
+   "nick": "Cubs",
+   "league": "National League",
+   "div": "National League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/112.svg"
+  },
+  "CIN": {
+   "name": "Cincinnati Reds",
+   "nick": "Reds",
+   "league": "National League",
+   "div": "National League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/113.svg"
+  },
+  "CLE": {
+   "name": "Cleveland Guardians",
+   "nick": "Guardians",
+   "league": "American League",
+   "div": "American League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/114.svg"
+  },
+  "COL": {
+   "name": "Colorado Rockies",
+   "nick": "Rockies",
+   "league": "National League",
+   "div": "National League West",
+   "logo": "https://www.mlbstatic.com/team-logos/115.svg"
+  },
+  "DET": {
+   "name": "Detroit Tigers",
+   "nick": "Tigers",
+   "league": "American League",
+   "div": "American League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/116.svg"
+  },
+  "HOU": {
+   "name": "Houston Astros",
+   "nick": "Astros",
+   "league": "American League",
+   "div": "American League West",
+   "logo": "https://www.mlbstatic.com/team-logos/117.svg"
+  },
+  "KC": {
+   "name": "Kansas City Royals",
+   "nick": "Royals",
+   "league": "American League",
+   "div": "American League Central",
+   "logo": "https://www.mlbstatic.com/team-logos/118.svg"
+  },
+  "LAD": {
+   "name": "Los Angeles Dodgers",
+   "nick": "Dodgers",
+   "league": "National League",
+   "div": "National League West",
+   "logo": "https://www.mlbstatic.com/team-logos/119.svg"
+  },
+  "WSH": {
+   "name": "Washington Nationals",
+   "nick": "Nationals",
+   "league": "National League",
+   "div": "National League East",
+   "logo": "https://www.mlbstatic.com/team-logos/120.svg"
+  },
+  "NYM": {
+   "name": "New York Mets",
+   "nick": "Mets",
+   "league": "National League",
+   "div": "National League East",
+   "logo": "https://www.mlbstatic.com/team-logos/121.svg"
+  },
+  "ATH": {
+   "name": "Athletics",
+   "nick": "Athletics",
+   "league": "American League",
+   "div": "American League West",
+   "logo": "https://www.mlbstatic.com/team-logos/133.svg"
+  }
+ },
+ "updated": "2026-11-16T19:22:21.290Z"
+}
