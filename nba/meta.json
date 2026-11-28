@@ -1,0 +1,274 @@
+{
+ "sport": "nba",
+ "time": "date",
+ "latestSeason": 2027,
+ "seasons": [
+  {
+   "season": 2019,
+   "label": "2018-19",
+   "maxDate": 20190613,
+   "playerRows": 27758
+  },
+  {
+   "season": 2020,
+   "label": "2019-20",
+   "maxDate": 20201011,
+   "playerRows": 24007
+  },
+  {
+   "season": 2021,
+   "label": "2020-21",
+   "maxDate": 20210720,
+   "playerRows": 24815
+  },
+  {
+   "season": 2022,
+   "label": "2021-22",
+   "maxDate": 20220616,
+   "playerRows": 27942
+  },
+  {
+   "season": 2023,
+   "label": "2022-23",
+   "maxDate": 20230612,
+   "playerRows": 27637
+  },
+  {
+   "season": 2024,
+   "label": "2023-24",
+   "maxDate": 20240617,
+   "playerRows": 28098
+  },
+  {
+   "season": 2025,
+   "label": "2024-25",
+   "maxDate": 20250622,
+   "playerRows": 28154
+  },
+  {
+   "season": 2026,
+   "label": "2025-26",
+   "maxDate": 20260613,
+   "playerRows": 28588
+  },
+  {
+   "season": 2027,
+   "label": "2026-27",
+   "maxDate": 20261125,
+   "playerRows": 6015
+  }
+ ],
+ "teams": {
+  "TOR": {
+   "name": "Toronto Raptors",
+   "nick": "Raptors",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/tor.png",
+   "color": "#d91244",
+   "color2": "#000000"
+  },
+  "GS": {
+   "name": "Golden State Warriors",
+   "nick": "Warriors",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
+   "color": "#fdb927",
+   "color2": "#1d428a"
+  },
+  "MIL": {
+   "name": "Milwaukee Bucks",
+   "nick": "Bucks",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/mil.png",
+   "color": "#00471b",
+   "color2": "#eee1c6"
+  },
+  "POR": {
+   "name": "Portland Trail Blazers",
+   "nick": "Trail Blazers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/por.png",
+   "color": "#e03a3e",
+   "color2": "#000000"
+  },
+  "PHI": {
+   "name": "Philadelphia 76ers",
+   "nick": "76ers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/phi.png",
+   "color": "#1d428a",
+   "color2": "#e01234"
+  },
+  "DEN": {
+   "name": "Denver Nuggets",
+   "nick": "Nuggets",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/den.png",
+   "color": "#0e2240",
+   "color2": "#fec524"
+  },
+  "HOU": {
+   "name": "Houston Rockets",
+   "nick": "Rockets",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/hou.png",
+   "color": "#ce0e2d",
+   "color2": "#000000"
+  },
+  "BOS": {
+   "name": "Boston Celtics",
+   "nick": "Celtics",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/bos.png",
+   "color": "#008348",
+   "color2": "#ffffff"
+  },
+  "SA": {
+   "name": "San Antonio Spurs",
+   "nick": "Spurs",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/sa.png",
+   "color": "#000000",
+   "color2": "#c4ced4"
+  },
+  "LAC": {
+   "name": "LA Clippers",
+   "nick": "Clippers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/lac.png",
+   "color": "#12173f",
+   "color2": "#c8102e"
+  },
+  "UTAH": {
+   "name": "Utah Jazz",
+   "nick": "Jazz",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/utah.png",
+   "color": "#4e008e",
+   "color2": "#79a3dc"
+  },
+  "OKC": {
+   "name": "Oklahoma City Thunder",
+   "nick": "Thunder",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/okc.png",
+   "color": "#007ac1",
+   "color2": "#ef3b24"
+  },
+  "BKN": {
+   "name": "Brooklyn Nets",
+   "nick": "Nets",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/bkn.png",
+   "color": "#000000",
+   "color2": "#ffffff"
+  },
+  "ORL": {
+   "name": "Orlando Magic",
+   "nick": "Magic",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/orl.png",
+   "color": "#0150b5",
+   "color2": "#9ca0a3"
+  },
+  "DET": {
+   "name": "Detroit Pistons",
+   "nick": "Pistons",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/det.png",
+   "color": "#1d428a",
+   "color2": "#c8102e"
+  },
+  "IND": {
+   "name": "Indiana Pacers",
+   "nick": "Pacers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+   "color": "#0c2340",
+   "color2": "#ffd520"
+  },
+  "MIN": {
+   "name": "Minnesota Timberwolves",
+   "nick": "Timberwolves",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/min.png",
+   "color": "#266092",
+   "color2": "#79bc43"
+  },
+  "SAC": {
+   "name": "Sacramento Kings",
+   "nick": "Kings",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/sac.png",
+   "color": "#5a2d81",
+   "color2": "#6a7a82"
+  },
+  "ATL": {
+   "name": "Atlanta Hawks",
+   "nick": "Hawks",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/atl.png",
+   "color": "#c8102e",
+   "color2": "#fdb927"
+  },
+  "MIA": {
+   "name": "Miami Heat",
+   "nick": "Heat",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/mia.png",
+   "color": "#98002e",
+   "color2": "#000000"
+  },
+  "CHA": {
+   "name": "Charlotte Hornets",
+   "nick": "Hornets",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/cha.png",
+   "color": "#008ca8",
+   "color2": "#1d1060"
+  },
+  "NY": {
+   "name": "New York Knicks",
+   "nick": "Knicks",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/ny.png",
+   "color": "#1d428a",
+   "color2": "#f58426"
+  },
+  "CHI": {
+   "name": "Chicago Bulls",
+   "nick": "Bulls",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/chi.png",
+   "color": "#ce1141",
+   "color2": "#000000"
+  },
+  "MEM": {
+   "name": "Memphis Grizzlies",
+   "nick": "Grizzlies",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/mem.png",
+   "color": "#5d76a9",
+   "color2": "#12173f"
+  },
+  "DAL": {
+   "name": "Dallas Mavericks",
+   "nick": "Mavericks",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/dal.png",
+   "color": "#0064b1",
+   "color2": "#bbc4ca"
+  },
+  "LAL": {
+   "name": "Los Angeles Lakers",
+   "nick": "Lakers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/lal.png",
+   "color": "#552583",
+   "color2": "#fdb927"
+  },
+  "PHX": {
+   "name": "Phoenix Suns",
+   "nick": "Suns",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/phx.png",
+   "color": "#29127a",
+   "color2": "#e56020"
+  },
+  "NO": {
+   "name": "New Orleans Pelicans",
+   "nick": "Pelicans",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/no.png",
+   "color": "#0a2240",
+   "color2": "#b4975a"
+  },
+  "CLE": {
+   "name": "Cleveland Cavaliers",
+   "nick": "Cavaliers",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/cle.png",
+   "color": "#860038",
+   "color2": "#bc945c"
+  },
+  "WSH": {
+   "name": "Washington Wizards",
+   "nick": "Wizards",
+   "logo": "https://a.espncdn.com/i/teamlogos/nba/500/wsh.png",
+   "color": "#e31837",
+   "color2": "#002b5c"
+  }
+ },
+ "updated": "2026-11-28T10:44:35.247Z"
+}
